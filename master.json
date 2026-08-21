@@ -1,1 +1,29 @@
-
+{
+  "version": "1.0.0",
+  "scripts": [
+    {
+      "name": "WhatsApp Green Tick",
+      "enabled": true,
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "file": "scripts/whatsapp-green-tick.js"
+    },
+    {
+      "name": "AROAPP Helper",
+      "enabled": true,
+      "matches": [
+        "https://your-aroapp-domain.com/*"
+      ],
+      "file": "scripts/aroapp-helper.js"
+    },
+    {
+      "name": "QC Helper",
+      "enabled": false,
+      "matches": [
+        "https://your-aroapp-domain.com/*"
+      ],
+      "file": "scripts/qc-helper.js"
+    }
+  ]
+}
