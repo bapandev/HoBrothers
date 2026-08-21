@@ -1,26 +1,22 @@
 {
     "version": "1.0.0",
-
     "scripts": [
         {
             "name": "iJewel Drive - Public Share Toggle",
             "enabled": true,
-
             "matches": [
                 "https://customdesign.ijewel3d.com/drive/folders/*"
             ],
-
             "file": "scripts/public-share-toggle.js"
+        },
+        {
+            "name": "iJewel3D Tools - Robust View Playground Compare",
+            "enabled": true,
+            "matches": [
+                "https://customdesign.ijewel3d.com/drive/files/*",
+                "https://drive.ijewel3d.com/drive/files/*"
+            ],
+            "file": "scripts/ijewel3d-tools.js"
         }
     ]
-}
-
-{
-    "name": "iJewel3D Tools - Robust View Playground Compare",
-    "enabled": true,
-    "matches": [
-        "https://customdesign.ijewel3d.com/drive/files/*",
-        "https://drive.ijewel3d.com/drive/files/*"
-    ],
-    "file": "scripts/ijewel3d-tools.js"
 }
