@@ -14,3 +14,13 @@
         }
     ]
 }
+
+{
+    "name": "iJewel3D Tools - Robust View Playground Compare",
+    "enabled": true,
+    "matches": [
+        "https://customdesign.ijewel3d.com/drive/files/*",
+        "https://drive.ijewel3d.com/drive/files/*"
+    ],
+    "file": "scripts/ijewel3d-tools.js"
+}
