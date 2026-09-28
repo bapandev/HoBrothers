@@ -25,6 +25,14 @@
         "https://hbusa.nifty.pm/*"
       ],
       "file": "scripts/InProgressQuickToggle.js"
-    }
+    },
+    {
+  "name": "Nifty - Ready for Price Quick Action",
+  "enabled": true,
+  "matches": [
+    "https://hbusa.nifty.pm/*"
+  ],
+  "file": "scripts/ReadyForPriceQuickAction.js"
+}
   ]
 }
