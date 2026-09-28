@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "scripts": [
     {
       "name": "iJewel Drive - Public Share Toggle",
@@ -27,12 +27,12 @@
       "file": "scripts/InProgressQuickToggle.js"
     },
     {
-  "name": "Nifty - Ready for Price Quick Action",
-  "enabled": true,
-  "matches": [
-    "https://hbusa.nifty.pm/*"
-  ],
-  "file": "scripts/ReadyForPriceQuickAction.js"
-}
+      "name": "Nifty - Ready for Price Quick Action",
+      "enabled": true,
+      "matches": [
+        "https://hbusa.nifty.pm/*"
+      ],
+      "file": "scripts/ReadyForPriceQuickAction.js"
+    }
   ]
 }
