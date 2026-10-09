@@ -1,5 +1,6 @@
+
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "scripts": [
     {
       "name": "iJewel Drive - Public Share Toggle",
@@ -33,6 +34,15 @@
         "https://hbusa.nifty.pm/*"
       ],
       "file": "scripts/ReadyForPriceQuickAction.js"
+    },
+    {
+      "name": "Nifty - CAD Quick Assign",
+      "enabled": true,
+      "matches": [
+        "https://hbusa.nifty.pm/*"
+      ],
+      "file": "scripts/NiftyCADQuickAssign.js"
     }
   ]
 }
+  
