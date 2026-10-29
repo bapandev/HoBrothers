@@ -1,6 +1,5 @@
-
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "scripts": [
     {
       "name": "iJewel Drive - Public Share Toggle",
@@ -42,7 +41,14 @@
         "https://hbusa.nifty.pm/*"
       ],
       "file": "scripts/NiftyCADQuickAssign.js"
+    },
+    {
+      "name": "Nifty - Open Help Scout (J Number)",
+      "enabled": true,
+      "matches": [
+        "https://hbusa.nifty.pm/*"
+      ],
+      "file": "scripts/NiftyOpenHelpScout.js"
     }
   ]
 }
-  
