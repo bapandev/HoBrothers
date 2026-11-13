@@ -1,603 +1,139 @@
-
 (function () {
-    'use strict';
+  'use strict';
+  if (window.__ijInlineLoaded) return;
+  window.__ijInlineLoaded = true;
 
-    const IDS = {
-        root: 'ijewel-tools-root-v41',
-        floating: 'ijewel-tools-floating-v41',
-        compareModal: 'ijewel-compare-modal-v41',
-        inputPanel: 'ijewel-input-panel-v41',
-        input: 'ijewel-input-v41',
-        message: 'ijewel-message-v41',
-        leftFrame: 'ijewel-left-frame-v41',
-        rightFrame: 'ijewel-right-frame-v41'
-    };
+  const st = document.createElement('style');
+  st.textContent = `
+  .ijBar{display:flex;gap:6px;margin:4px 0 6px}
+  .ijBar button{font:600 11px system-ui;padding:3px 9px;border-radius:5px;border:0;cursor:pointer;color:#fff;line-height:16px}
+  .ijBar .v{background:#2563eb}.ijBar .c{background:#4b5563}.ijBar .p{background:#7c3aed}
+  .ijBar button:hover{filter:brightness(1.15)}`;
+  document.head.appendChild(st);
 
-    let mountTimer = null;
+  const clean = h => h.split('#')[0];
 
-    function isIJewelFilePage() {
-        return /\/drive\/files\/[^/]+\/(?:view|playground)\/?$/i.test(location.pathname);
+  // All iJewel links in the open task, sorted by version (V1, V2, ...)
+  function getLinks() {
+    const seen = new Map();
+    [...document.querySelectorAll('a[href*="ijewel3d.com"]')]
+      .filter(a => a.offsetParent !== null)
+      .forEach((a, i) => {
+        const href = clean(a.href);
+        if (seen.has(href)) return;
+        const block = a.closest('.nifty-md, p') || a.parentElement;
+        const m = (block ? block.textContent : '').replace(href, ' ').match(/\bV\s*-?\s*(\d+)\b/i);
+        seen.set(href, { href, ver: m ? +m[1] : null, order: i });
+      });
+    const list = [...seen.values()];
+    list.forEach((l, i) => { if (l.ver == null) l.ver = i + 1; });
+    return list.sort((a, b) => a.ver - b.ver || a.order - b.order);
+  }
+
+  function getJob() {
+    const m = document.body.innerText.match(/\bJ\d{6}\b/g);
+    return m ? m[m.length - 1] : '';
+  }
+
+  // ---------- separate window viewer ----------
+  function openWindow(links, rightIdx, leftIdx) {
+    const two = leftIdx != null;
+    const job = getJob();
+    const name = two ? 'ijCompare' : 'ijView';
+    const w = window.open('', name, `width=${screen.availWidth},height=${screen.availHeight},left=0,top=0`);
+    if (!w) { alert('Please allow pop-ups for hbusa.nifty.pm'); return; }
+    const d = w.document;
+    d.open();
+    d.write(`<!doctype html><html><head><meta charset="utf-8"><title>${job} – ${two ? 'iJewel Compare' : 'iJewel View'}</title></head>
+      <body style="margin:0;height:100vh;display:flex;flex-direction:column;background:#111827;font:13px system-ui;color:#e5e7eb">
+      <div id="bar" style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:#1f2937">
+        <b style="font-size:15px">${job}</b><span>${two ? 'Compare versions' : 'View'}</span></div>
+      <div id="panes" style="flex:1;display:flex;gap:4px;padding:4px;min-height:0"></div></body></html>`);
+    d.close();
+
+    const btnStyle = 'background:#374151;color:#fff;border:1px solid #4b5563;border-radius:6px;padding:5px 8px;font:13px system-ui;cursor:pointer';
+    const panes = d.getElementById('panes');
+    const sides = {};
+
+    function makePane(side, color, title) {
+      const p = d.createElement('div');
+      p.style.cssText = 'flex:1;display:flex;flex-direction:column;min-width:0;border-radius:6px;overflow:hidden';
+      const head = d.createElement('div');
+      head.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;background:#273244';
+      const tag = d.createElement('span');
+      tag.textContent = title;
+      tag.style.cssText = `font-weight:700;padding:2px 8px;border-radius:10px;background:${color}`;
+      const sel = d.createElement('select');
+      sel.style.cssText = btnStyle;
+      links.forEach((l, i) => { const o = d.createElement('option'); o.value = i; o.textContent = 'V' + l.ver; sel.appendChild(o); });
+      const a = d.createElement('a');
+      a.target = '_blank'; a.textContent = 'Open in new tab ↗';
+      a.style.cssText = 'color:#93c5fd;margin-left:auto;text-decoration:none';
+      const f = d.createElement('iframe');
+      f.setAttribute('allow', 'fullscreen; xr-spatial-tracking'); f.allowFullscreen = true;
+      f.style.cssText = 'flex:1;border:0;width:100%;background:#fff';
+      head.append(tag, sel, a); p.append(head, f); panes.appendChild(p);
+      sides[side] = { sel, a, f };
+      sel.onchange = () => set(side, +sel.value);
+    }
+    function set(side, idx) {
+      const s = sides[side], l = links[idx];
+      s.sel.value = idx; s.f.src = l.href; s.a.href = l.href;
     }
 
-    function normalizeIJewelUrl(rawUrl) {
-        if (!rawUrl) return null;
-
-        let text = String(rawUrl).trim();
-        if (!text) return null;
-
-        if (text.startsWith('/')) {
-            text = location.origin + text;
-        } else if (!/^https?:\/\//i.test(text)) {
-            text = 'https://' + text;
-        }
-
-        try {
-            const url = new URL(text);
-
-            const allowedHosts = new Set([
-                'customdesign.ijewel3d.com',
-                'drive.ijewel3d.com'
-            ]);
-
-            if (!allowedHosts.has(url.hostname)) {
-                showMessage('Please paste a valid iJewel3D link.', 'error');
-                return null;
-            }
-
-            if (!/\/drive\/files\/[^/]+(?:\/(?:view|playground))?\/?$/i.test(url.pathname)) {
-                showMessage('This does not appear to be an iJewel3D file link.', 'error');
-                return null;
-            }
-
-            // If only /drive/files/ID is pasted, default to /view
-            const clean = url.pathname.replace(/\/+$/, '');
-            if (!/\/(?:view|playground)$/i.test(clean)) {
-                url.pathname = clean + '/view';
-            }
-
-            return url.toString();
-        } catch (e) {
-            showMessage('The pasted URL is not valid.', 'error');
-            return null;
-        }
+    if (two) makePane('left', '#b45309', 'PREVIOUS');
+    makePane('right', '#047857', two ? 'CURRENT' : 'VIEW');
+    set('right', rightIdx);
+    if (two) {
+      set('left', leftIdx);
+      const sw = d.createElement('button');
+      sw.textContent = '⇄ Swap'; sw.style.cssText = btnStyle;
+      sw.onclick = () => { const L = +sides.left.sel.value, R = +sides.right.sel.value; set('left', R); set('right', L); };
+      d.getElementById('bar').appendChild(sw);
     }
+    w.focus();
+  }
 
-    function convertPageMode(urlString, mode) {
-        try {
-            const url = new URL(urlString, location.origin);
-            let cleanPath = url.pathname.replace(/\/+$/, '');
+  // ---------- 3 small buttons under every link ----------
+  function addButtons() {
+    document.querySelectorAll('a[href*="ijewel3d.com"]:not([data-ij-done])').forEach(a => {
+      a.setAttribute('data-ij-done', '1');
+      const host = a.closest('p') || a;
+      if (host.nextElementSibling && host.nextElementSibling.classList.contains('ijBar')) return;
+      const href = clean(a.href);
+      const bar = document.createElement('div');
+      bar.className = 'ijBar';
+      bar.innerHTML = '<button class="v">👁 View</button><button class="c">📋 Copy link</button><button class="p">⇆ Compare prev</button>';
+      const stop = e => { e.preventDefault(); e.stopPropagation(); };
 
-            if (/\/(?:view|playground)$/i.test(cleanPath)) {
-                cleanPath = cleanPath.replace(/\/(?:view|playground)$/i, '/' + mode);
-            } else if (/\/drive\/files\/[^/]+$/i.test(cleanPath)) {
-                cleanPath += '/' + mode;
-            }
-
-            url.pathname = cleanPath;
-            return url.toString();
-        } catch (e) {
-            return urlString;
-        }
-    }
-
-    function getCurrentMode() {
-        return /\/playground\/?$/i.test(location.pathname) ? 'playground' : 'view';
-    }
-
-    function getCurrentFileUrl(mode) {
-        return convertPageMode(location.href, mode || getCurrentMode());
-    }
-
-    function showMessage(message, type = 'success', duration = 6500) {
-        document.getElementById(IDS.message)?.remove();
-
-        const box = document.createElement('div');
-        box.id = IDS.message;
-        box.textContent = message;
-
-        let bg = '#ecfdf5';
-        let fg = '#065f46';
-        let border = '#10b981';
-
-        if (type === 'error') {
-            bg = '#fef2f2';
-            fg = '#991b1b';
-            border = '#ef4444';
-        } else if (type === 'warning') {
-            bg = '#fffbeb';
-            fg = '#92400e';
-            border = '#f59e0b';
-        }
-
-        Object.assign(box.style, {
-            position: 'fixed',
-            top: '18px',
-            right: '18px',
-            zIndex: '2147483647',
-            maxWidth: '430px',
-            padding: '13px 15px',
-            borderRadius: '10px',
-            border: `1px solid ${border}`,
-            background: bg,
-            color: fg,
-            font: '700 13px/1.45 Arial,sans-serif',
-            whiteSpace: 'pre-line',
-            boxShadow: '0 10px 30px rgba(0,0,0,.25)',
-            cursor: 'pointer'
+      bar.querySelector('.v').onclick = e => {
+        stop(e);
+        const links = getLinks(); const i = links.findIndex(l => l.href === href);
+        if (i < 0) openWindow([{ href, ver: 1 }], 0); else openWindow(links, i);
+      };
+      bar.querySelector('.c').onclick = e => {
+        stop(e);
+        const b = e.currentTarget;
+        navigator.clipboard.writeText(href).then(() => {
+          b.textContent = '✔ Copied'; setTimeout(() => (b.textContent = '📋 Copy link'), 1500);
         });
-
-        box.addEventListener('click', () => box.remove());
-        document.body.appendChild(box);
-
-        if (duration > 0) {
-            setTimeout(() => box.isConnected && box.remove(), duration);
-        }
-    }
-
-    async function copyText(text) {
-        try {
-            await navigator.clipboard.writeText(text);
-            return true;
-        } catch (e) {
-            try {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                Object.assign(ta.style, {
-                    position: 'fixed',
-                    left: '-99999px',
-                    top: '-99999px'
-                });
-                document.body.appendChild(ta);
-                ta.select();
-                const ok = document.execCommand('copy');
-                ta.remove();
-                return ok;
-            } catch (err) {
-                return false;
-            }
-        }
-    }
-
-    function makeButton(text, bg, handler) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = text;
-
-        Object.assign(b.style, {
-            border: '0',
-            borderRadius: '8px',
-            padding: '8px 10px',
-            minHeight: '36px',
-            background: bg,
-            color: '#fff',
-            cursor: 'pointer',
-            font: '700 12px/1.2 Arial,sans-serif',
-            boxShadow: '0 2px 7px rgba(0,0,0,.16)',
-            whiteSpace: 'nowrap'
-        });
-
-        b.addEventListener('click', e => {
-            e.preventDefault();
-            e.stopPropagation();
-            handler(e);
-        });
-
-        return b;
-    }
-
-    function openCurrentPlayground() {
-        location.href = getCurrentFileUrl('playground');
-    }
-
-    function openCurrentView() {
-        location.href = getCurrentFileUrl('view');
-    }
-
-    async function incognitoHelper() {
-        const ok = await copyText(location.href);
-
-        if (ok) {
-            showMessage(
-                'Link copied.\nPress Ctrl + Shift + N, then Ctrl + V and Enter.',
-                'warning',
-                10000
-            );
-        } else {
-            showMessage(
-                'Chrome blocks opening Incognito directly. Open Incognito manually and paste this URL.',
-                'warning',
-                10000
-            );
-        }
-    }
-
-    function closeCompareModal() {
-        document.getElementById(IDS.compareModal)?.remove();
-        document.body.style.overflow = '';
-    }
-
-    function smallButton(text, handler) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = text;
-        Object.assign(b.style, {
-            border: '1px solid #475569',
-            background: '#1f2937',
-            color: '#fff',
-            borderRadius: '6px',
-            padding: '5px 8px',
-            cursor: 'pointer',
-            font: '600 11px Arial,sans-serif'
-        });
-        b.addEventListener('click', e => {
-            e.preventDefault();
-            e.stopPropagation();
-            handler();
-        });
-        return b;
-    }
-
-    function makeFramePanel(titleText, url, frameId) {
-        const panel = document.createElement('div');
-        Object.assign(panel.style, {
-            flex: '1 1 50%',
-            minWidth: '0',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            background: '#fff'
-        });
-
-        const header = document.createElement('div');
-        Object.assign(header.style, {
-            minHeight: '44px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '0 10px',
-            background: '#111827',
-            color: '#fff',
-            borderBottom: '1px solid #374151',
-            font: '600 12px Arial,sans-serif'
-        });
-
-        const title = document.createElement('span');
-        title.textContent = titleText;
-        Object.assign(title.style, {
-            marginRight: 'auto',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-        });
-
-        const frame = document.createElement('iframe');
-        frame.id = frameId;
-        frame.src = url;
-        frame.allow = 'fullscreen; clipboard-read; clipboard-write';
-        Object.assign(frame.style, {
-            width: '100%',
-            flex: '1 1 auto',
-            border: '0',
-            background: '#fff'
-        });
-
-        header.append(
-            title,
-            smallButton('View', () => frame.src = convertPageMode(frame.src, 'view')),
-            smallButton('Playground', () => frame.src = convertPageMode(frame.src, 'playground')),
-            smallButton('↗', () => window.open(frame.src, '_blank', 'noopener,noreferrer'))
-        );
-
-        panel.append(header, frame);
-        return panel;
-    }
-
-    function openSideBySide(secondUrl) {
-        closeCompareModal();
-
-        const modal = document.createElement('div');
-        modal.id = IDS.compareModal;
-
-        Object.assign(modal.style, {
-            position: 'fixed',
-            inset: '0',
-            zIndex: '2147483000',
-            display: 'flex',
-            flexDirection: 'column',
-            background: '#111827',
-            fontFamily: 'Arial,sans-serif'
-        });
-
-        const bar = document.createElement('div');
-        Object.assign(bar.style, {
-            minHeight: '54px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '0 12px',
-            background: '#0f172a',
-            color: '#fff'
-        });
-
-        const title = document.createElement('div');
-        title.textContent = 'iJewel3D Compare';
-        Object.assign(title.style, {
-            marginRight: 'auto',
-            fontWeight: '700'
-        });
-
-        const swap = makeButton('⇄ Swap', '#475569', () => {
-            const left = document.getElementById(IDS.leftFrame);
-            const right = document.getElementById(IDS.rightFrame);
-            if (!left || !right) return;
-            const tmp = left.src;
-            left.src = right.src;
-            right.src = tmp;
-        });
-        swap.style.width = 'auto';
-
-        const tabs = makeButton('↗ Open Both Tabs', '#0369a1', () => {
-            const left = document.getElementById(IDS.leftFrame);
-            const right = document.getElementById(IDS.rightFrame);
-            if (left) window.open(left.src, '_blank', 'noopener,noreferrer');
-            if (right) setTimeout(() => window.open(right.src, '_blank', 'noopener,noreferrer'), 150);
-        });
-        tabs.style.width = 'auto';
-
-        const close = makeButton('✕ Close', '#dc2626', closeCompareModal);
-        close.style.width = 'auto';
-
-        bar.append(title, swap, tabs, close);
-
-        const area = document.createElement('div');
-        Object.assign(area.style, {
-            flex: '1 1 auto',
-            minHeight: '0',
-            display: 'flex',
-            gap: '2px',
-            overflow: 'hidden',
-            background: '#475569'
-        });
-
-        area.append(
-            makeFramePanel('Current File', getCurrentFileUrl(getCurrentMode()), IDS.leftFrame),
-            makeFramePanel('Pasted File', secondUrl, IDS.rightFrame)
-        );
-
-        modal.append(bar, area);
-        document.body.appendChild(modal);
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeInput() {
-        document.getElementById(IDS.inputPanel)?.remove();
-    }
-
-    function showCompareInput(root) {
-        const existing = document.getElementById(IDS.inputPanel);
-        if (existing) {
-            document.getElementById(IDS.input)?.focus();
-            return;
-        }
-
-        const panel = document.createElement('div');
-        panel.id = IDS.inputPanel;
-
-        Object.assign(panel.style, {
-            marginTop: '8px',
-            padding: '9px',
-            border: '1px solid #d1d5db',
-            borderRadius: '8px',
-            background: '#f8fafc'
-        });
-
-        const input = document.createElement('input');
-        input.id = IDS.input;
-        input.type = 'text';
-        input.placeholder = 'Paste another iJewel3D link';
-
-        Object.assign(input.style, {
-            width: '100%',
-            boxSizing: 'border-box',
-            padding: '8px',
-            border: '1px solid #9ca3af',
-            borderRadius: '7px',
-            background: '#fff',
-            color: '#111827',
-            font: '12px Arial,sans-serif'
-        });
-
-        const row = document.createElement('div');
-        Object.assign(row.style, {
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '6px',
-            marginTop: '7px'
-        });
-
-        const cancel = makeButton('Cancel', '#6b7280', closeInput);
-        const compare = makeButton('Open Compare', '#059669', () => {
-            const url = normalizeIJewelUrl(input.value);
-            if (!url) return;
-            closeInput();
-            openSideBySide(url);
-        });
-
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') compare.click();
-            if (e.key === 'Escape') closeInput();
-        });
-
-        row.append(cancel, compare);
-        panel.append(input, row);
-        root.appendChild(panel);
-
-        setTimeout(() => input.focus(), 50);
-    }
-
-    function buildToolRoot() {
-        const root = document.createElement('div');
-        root.id = IDS.root;
-
-        Object.assign(root.style, {
-            boxSizing: 'border-box',
-            padding: '8px',
-            background: '#f8fafc',
-            border: '1px solid #d1d5db',
-            borderRadius: '10px',
-            fontFamily: 'Arial,sans-serif'
-        });
-
-        const grid = document.createElement('div');
-        Object.assign(grid.style, {
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '6px'
-        });
-
-        const modeButton = getCurrentMode() === 'playground'
-            ? makeButton('👁 View', '#2563eb', openCurrentView)
-            : makeButton('✏ Playground', '#2563eb', openCurrentPlayground);
-
-        const compare = makeButton('◫ Compare', '#059669', () => showCompareInput(root));
-        const incognito = makeButton('🕶 Incognito', '#374151', incognitoHelper);
-        incognito.style.gridColumn = '1 / -1';
-
-        grid.append(modeButton, compare, incognito);
-        root.appendChild(grid);
-
-        return root;
-    }
-
-    function findSidebarTarget() {
-        // Old known selector
-        const old = document.querySelector('#scrollable-content');
-        if (old && old.getBoundingClientRect().width > 150) {
-            return old;
-        }
-
-        // Common right-side panels / drawers
-        const selectors = [
-            '[role="dialog"]',
-            '[class*="drawer"]',
-            '[class*="sidebar"]',
-            '[class*="side-panel"]',
-            '[class*="panel"]',
-            '[class*="details"]'
-        ];
-
-        const candidates = [];
-
-        for (const sel of selectors) {
-            document.querySelectorAll(sel).forEach(el => {
-                const r = el.getBoundingClientRect();
-                const style = getComputedStyle(el);
-
-                if (
-                    r.width >= 220 &&
-                    r.width <= 520 &&
-                    r.height >= 300 &&
-                    r.right > innerWidth * 0.65 &&
-                    style.display !== 'none' &&
-                    style.visibility !== 'hidden'
-                ) {
-                    candidates.push({ el, r });
-                }
-            });
-        }
-
-        candidates.sort((a, b) => b.r.right - a.r.right || b.r.height - a.r.height);
-        return candidates[0]?.el || null;
-    }
-
-    function mountFloating() {
-        if (document.getElementById(IDS.floating)) return true;
-        if (!document.body) return false;
-
-        const wrap = document.createElement('div');
-        wrap.id = IDS.floating;
-
-        Object.assign(wrap.style, {
-            position: 'fixed',
-            right: '16px',
-            bottom: '16px',
-            zIndex: '2147482000',
-            width: '260px'
-        });
-
-        wrap.appendChild(buildToolRoot());
-        document.body.appendChild(wrap);
-        return true;
-    }
-
-    function mountTools() {
-        if (!isIJewelFilePage()) return false;
-
-        const existingRoot = document.getElementById(IDS.root);
-        if (existingRoot && existingRoot.isConnected) {
-            return true;
-        }
-
-        document.getElementById(IDS.floating)?.remove();
-
-        const target = findSidebarTarget();
-
-        if (target) {
-            const root = buildToolRoot();
-            root.style.margin = '8px';
-
-            // Put near the top but don't break the app
-            try {
-                target.insertBefore(root, target.children[1] || null);
-            } catch (e) {
-                target.prepend(root);
-            }
-            return true;
-        }
-
-        return mountFloating();
-    }
-
-    function scheduleMount() {
-        if (mountTimer) clearTimeout(mountTimer);
-        mountTimer = setTimeout(mountTools, 180);
-    }
-
-    // Initial
-    scheduleMount();
-
-    // SPA route / DOM changes
-    const observer = new MutationObserver(scheduleMount);
-    observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true
+      };
+      bar.querySelector('.p').onclick = e => {
+        stop(e);
+        const b = e.currentTarget;
+        const links = getLinks(); const i = links.findIndex(l => l.href === href);
+        if (i <= 0) { b.textContent = 'No previous version'; setTimeout(() => (b.textContent = '⇆ Compare prev'), 1500); return; }
+        openWindow(links, i, i - 1);
+      };
+      host.insertAdjacentElement('afterend', bar);
     });
+  }
 
-    // History API route changes
-    const originalPushState = history.pushState;
-    history.pushState = function () {
-        const result = originalPushState.apply(this, arguments);
-        setTimeout(scheduleMount, 50);
-        return result;
-    };
-
-    const originalReplaceState = history.replaceState;
-    history.replaceState = function () {
-        const result = originalReplaceState.apply(this, arguments);
-        setTimeout(scheduleMount, 50);
-        return result;
-    };
-
-    window.addEventListener('popstate', scheduleMount);
-    window.addEventListener('hashchange', scheduleMount);
-
-    // Extra retry while app loads
-    let tries = 0;
-    const retry = setInterval(() => {
-        tries++;
-        mountTools();
-        if (tries >= 30) clearInterval(retry);
-    }, 1000);
-
-    console.log('[iJewel3D Tools v4.1] loaded on:', location.href);
-})(); 
+  addButtons();
+  let t;
+  new MutationObserver(muts => {
+    // ignore changes caused by our own buttons
+    if (muts.every(m => [...m.addedNodes].every(n => n.classList && n.classList.contains('ijBar')))) return;
+    clearTimeout(t); t = setTimeout(addButtons, 400);
+  }).observe(document.body, { childList: true, subtree: true });
+})();
