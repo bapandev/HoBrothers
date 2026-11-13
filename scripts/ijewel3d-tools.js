@@ -1,3 +1,12 @@
+// ==UserScript==
+// @name         Nifty – iJewel View / Copy / Compare
+// @namespace    hobrothers.cad
+// @version      3.0
+// @description  Adds View, Copy Link and Compare-with-previous buttons under every iJewel3D link in Nifty comments. View/Compare open in a separate window.
+// @match        https://hbusa.nifty.pm/*
+// @grant        none
+// ==/UserScript==
+
 (function () {
   'use strict';
   if (window.__ijInlineLoaded) return;
@@ -97,7 +106,9 @@
   // ---------- 3 small buttons under every link ----------
   function addButtons() {
     document.querySelectorAll('a[href*="ijewel3d.com"]:not([data-ij-done])').forEach(a => {
+      if (a.offsetParent === null) return;                 // hidden copy – check again later
       a.setAttribute('data-ij-done', '1');
+      if (a.closest('[contenteditable="true"]')) return;   // skip the comment editor box
       const host = a.closest('p') || a;
       if (host.nextElementSibling && host.nextElementSibling.classList.contains('ijBar')) return;
       const href = clean(a.href);
@@ -129,11 +140,7 @@
     });
   }
 
+  // light polling instead of a MutationObserver (avoids feedback loops with Nifty's editor)
   addButtons();
-  let t;
-  new MutationObserver(muts => {
-    // ignore changes caused by our own buttons
-    if (muts.every(m => [...m.addedNodes].every(n => n.classList && n.classList.contains('ijBar')))) return;
-    clearTimeout(t); t = setTimeout(addButtons, 400);
-  }).observe(document.body, { childList: true, subtree: true });
+  setInterval(addButtons, 1500);
 })();
