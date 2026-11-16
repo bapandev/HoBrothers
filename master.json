@@ -10,15 +10,13 @@
       "file": "scripts/public-share-toggle.js"
     },
     {
-      "name": "iJewel3D Tools - Robust View Playground Compare",
-      "enabled": true,
-      "matches": [
-        "https://ijewel3d.com/customdesign/files/*",
-        "https://hbusa.nifty.pm/*",
-        "https://ijewel3d.com/customdesign/folders/*"
-      ],
-      "file": "scripts/ijewel3d-tools.js"
-    },
+  "name": "Nifty - iJewel View / Copy / Compare",
+  "enabled": true,
+  "matches": [
+    "https://hbusa.nifty.pm/*"
+  ],
+  "file": "scripts/ijewel3d-tools.js"
+},
     {
       "name": "Nifty - In Progress Quick Toggle",
       "enabled": true,
