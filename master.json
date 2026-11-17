@@ -41,6 +41,15 @@
       ],
       "file": "scripts/NiftyCADQuickAssign.js"
     },
+
+    {
+  "name": "iJewel - Individual Quick Tool Buttons",
+  "enabled": true,
+  "matches": [
+    "https://ijewel3d.com/customdesign/*"
+  ],
+  "file": "scripts/iJewelQuickToolButtons.js"
+},
     {
       "name": "Nifty - Open Help Scout (J Number)",
       "enabled": true,
