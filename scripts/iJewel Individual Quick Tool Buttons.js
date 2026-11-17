@@ -3,7 +3,7 @@
 // @namespace    adhikaryarts
 // @version      2.2.0
 // @description  Shows individual iJewel tools beside Save, including a one-click camera angle preset.
-// @match        https://ijewel3d.com/customdesign/
+// @match        https://ijewel3d.com/customdesign/*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
