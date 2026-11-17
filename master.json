@@ -1,59 +1,46 @@
 {
-  "version": "1.0.4",
+  "version": "1.0.5",
   "scripts": [
     {
       "name": "iJewel Drive - Public Share Toggle",
       "enabled": true,
-      "matches": [
-        "https://customdesign.ijewel3d.com/drive/folders/*"
-      ],
+      "matches": ["https://customdesign.ijewel3d.com/drive/folders/*"],
       "file": "scripts/public-share-toggle.js"
     },
     {
-  "name": "Nifty - iJewel View / Copy / Compare",
-  "enabled": true,
-  "matches": [
-    "https://hbusa.nifty.pm/*"
-  ],
-  "file": "scripts/ijewel3d-tools.js"
-},
+      "name": "Nifty - iJewel View / Copy / Compare",
+      "enabled": true,
+      "matches": ["https://hbusa.nifty.pm/*"],
+      "file": "scripts/ijewel3d-tools.js"
+    },
     {
       "name": "Nifty - In Progress Quick Toggle",
       "enabled": true,
-      "matches": [
-        "https://hbusa.nifty.pm/*"
-      ],
+      "matches": ["https://hbusa.nifty.pm/*"],
       "file": "scripts/InProgressQuickToggle.js"
     },
     {
       "name": "Nifty - Ready for Price Quick Action",
       "enabled": true,
-      "matches": [
-        "https://hbusa.nifty.pm/*"
-      ],
+      "matches": ["https://hbusa.nifty.pm/*"],
       "file": "scripts/ReadyForPriceQuickAction.js"
     },
     {
       "name": "Nifty - CAD Quick Assign",
       "enabled": true,
-      "matches": [
-        "https://hbusa.nifty.pm/*"
-      ],
+      "matches": ["https://hbusa.nifty.pm/*"],
       "file": "scripts/NiftyCADQuickAssign.js"
     },
-
-{
-  "name": "iJewel - Individual Quick Tool Buttons",
-  "enabled": true,
-  "matches": ["https://ijewel3d.com/customdesign/*"],
-  "file": "scripts/iJewelQuickToolButtons.js"
-}
+    {
+      "name": "iJewel - Individual Quick Tool Buttons",
+      "enabled": true,
+      "matches": ["https://ijewel3d.com/customdesign/*"],
+      "file": "scripts/iJewelQuickToolButtons.js"
+    },
     {
       "name": "Nifty - Open Help Scout (J Number)",
       "enabled": true,
-      "matches": [
-        "https://hbusa.nifty.pm/*"
-      ],
+      "matches": ["https://hbusa.nifty.pm/*"],
       "file": "scripts/NiftyOpenHelpScout.js"
     }
   ]
