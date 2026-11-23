@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Nifty – In Progress Quick Toggle
 // @namespace    https://hbusa.nifty.pm/
-// @version      1.1.1
-// @description  Toggle the In Progress tag beside READY FOR PRICE.
+// @version      1.3.0
+// @description  Toggle the In Progress tag from the Comments header (beside Show activity).
 // @match        https://hbusa.nifty.pm/*
 // @run-at       document-idle
 // @grant        none
@@ -34,6 +34,24 @@
   const exact = (element, text) =>
     norm(element?.textContent) === text;
 
+  // Nifty's new task panel shows Tags as a "fact" cell:
+  //   .task-panel-fact > .task-panel-fact-label > .task-panel-fact-text "Tags"
+  // The old layout used .control / .control-text. Support both.
+  function tagsBlock(panel) {
+    const blocks = all(panel, '.task-panel-fact, .control').filter(block =>
+      all(block, ':scope > * .task-panel-fact-text, .control-text').some(
+        element => exact(element, 'Tags')
+      ) && block.querySelector('.labels-list')
+    );
+
+    // Keep the innermost match only.
+    const inner = blocks.filter(block =>
+      !blocks.some(other => other !== block && block.contains(other))
+    );
+
+    return inner.length === 1 ? inner[0] : null;
+  }
+
   function context() {
     const panels = all(document, '.content-panel-main')
       .filter(visible)
@@ -42,21 +60,12 @@
     if (panels.length !== 1) return null;
 
     const panel = panels[0];
+    const control = tagsBlock(panel);
+    if (!control) return null;
 
-    const controls = all(panel, '.control').filter(control =>
-      all(control, '.control-text').some(element =>
-        exact(element, 'Tags')
-      )
-    );
-
-    if (controls.length !== 1) return null;
-
-    const control = controls[0];
     const list = control.querySelector('.labels-list');
     const head = panel.querySelector('.content-panel-head');
 
-    // Read the dedicated task ID node.
-    // The whole header joins the ID and status without spaces.
     const key = norm(
       head?.querySelector('.nice-id')?.textContent
     );
@@ -91,18 +100,23 @@
     return c;
   }
 
+  // New layout: each tag is a .status-chip. Old: .labels-list-item.
   const hasTag = c =>
     all(
       c.list,
-      '.labels-list-item-text, .labels-list-item'
+      '.status-chip, .labels-list-item-text, .labels-list-item'
     ).some(element => exact(element, TAG));
+
+  // New layout label is "+ Add"; old was "Add".
+  const isAddText = element =>
+    /^\+?\s*Add$/i.test(norm(element?.textContent));
 
   const addControl = c =>
     all(
       c.list,
       '.action-text, button, [role="button"]'
     ).find(element =>
-      element.id !== ID && exact(element, 'Add')
+      element.id !== ID && isAddText(element)
     );
 
   const searches = () =>
@@ -124,7 +138,7 @@
 
     const matches = all(
       root,
-      '.color-block, [role="option"], [role="menuitem"], li'
+      '[role="option"], .color-block, [role="menuitem"], li'
     ).filter(element =>
       visible(element) &&
       (
@@ -142,6 +156,31 @@
     );
 
     return rows.length === 1 ? rows[0] : null;
+  }
+
+  // Is the tag ticked in the picker? null = unknown.
+  // New picker: a lucide "check" svg appears in the row when selected.
+  // (aria-selected on these rows is only the keyboard highlight.)
+  function optionSelected(option) {
+    if (option.matches('[role="option"]')) {
+      return !!option.querySelector(
+        'svg.lucide-check, svg[class*="check"]'
+      );
+    }
+
+    if (option.matches('.color-block')) {
+      return option.classList.contains('selected');
+    }
+
+    const checkbox = option.querySelector(
+      'input[type="checkbox"], [aria-checked]'
+    );
+
+    if (!checkbox) return null;
+
+    return checkbox.matches('input')
+      ? checkbox.checked
+      : checkbox.getAttribute('aria-checked') === 'true';
   }
 
   async function waitFor(read, original) {
@@ -172,7 +211,6 @@
       ? 'REMOVE IN PROGRESS'
       : 'START IN PROGRESS';
 
-    // Avoid unnecessary mutations and observer loops.
     if (button.textContent !== label) {
       button.textContent = label;
     }
@@ -189,7 +227,10 @@
       button.title = title;
     }
 
-    button.setAttribute('aria-pressed', String(active));
+    if (button.getAttribute('aria-pressed') !== String(active)) {
+      button.setAttribute('aria-pressed', String(active));
+    }
+
     button.disabled = false;
   }
 
@@ -206,23 +247,6 @@
       return;
     }
 
-    const ready = c.panel.querySelector(
-      '#nifty-ready-for-price-control'
-    );
-
-    const anchor =
-      ready ||
-      c.panel.querySelector('.content-panel-head-utils a');
-
-    const parent =
-      anchor?.parentElement ||
-      c.panel.querySelector('.content-panel-head-utils');
-
-    if (!parent) {
-      button?.remove();
-      return;
-    }
-
     if (!button) {
       button = document.createElement('button');
       button.id = ID;
@@ -230,12 +254,52 @@
       button.addEventListener('click', toggle);
     }
 
-    if (anchor) {
-      if (anchor.nextElementSibling !== button) {
-        anchor.after(button);
+    // Preferred spot: Comments header, just left of "Show activity".
+    const commentsHead = c.panel.querySelector(
+      '.section-comments .section-head'
+    );
+
+    const activity = commentsHead
+      ? [...commentsHead.children].find(element =>
+          element !== button &&
+          /^(show|hide) activity$/i.test(norm(element.textContent))
+        )
+      : null;
+
+    if (activity) {
+      button.classList.add('nqt-in-comments');
+
+      if (activity.previousElementSibling !== button) {
+        activity.before(button);
       }
-    } else if (button.parentElement !== parent) {
-      parent.append(button);
+    } else {
+      // Fallback: task header, beside READY FOR PRICE.
+      button.classList.remove('nqt-in-comments');
+
+      const ready = c.panel.querySelector(
+        '#nifty-ready-for-price-control'
+      );
+
+      const anchor =
+        ready ||
+        c.panel.querySelector('.content-panel-head-utils a');
+
+      const parent =
+        anchor?.parentElement ||
+        c.panel.querySelector('.content-panel-head-utils');
+
+      if (!parent) {
+        button.remove();
+        return;
+      }
+
+      if (anchor) {
+        if (anchor.nextElementSibling !== button) {
+          anchor.after(button);
+        }
+      } else if (button.parentElement !== parent) {
+        parent.append(button);
+      }
     }
 
     paint(button, c);
@@ -330,25 +394,9 @@
         throw new Error('Tag picker closed.');
       }
 
-      const checkbox = option.matches(
-        '[aria-selected], [aria-checked]'
-      )
-        ? option
-        : option.querySelector(
-            'input[type="checkbox"], [aria-checked]'
-          );
+      const selected = optionSelected(option);
 
-      const selected = option.matches('.color-block')
-        ? option.classList.contains('selected')
-        : checkbox?.matches('input')
-          ? checkbox.checked
-          : checkbox?.getAttribute('aria-checked') ??
-            checkbox?.getAttribute('aria-selected');
-
-      if (
-        selected != null &&
-        String(selected) !== String(before)
-      ) {
+      if (selected != null && selected !== before) {
         throw new Error(
           'Picker and task disagree about the tag. ' +
           'Refresh and try again.'
@@ -385,7 +433,7 @@
       );
     } finally {
       // Escape can close the entire task panel.
-      // Close only this picker using the native Tags toggle.
+      // Close only this picker using the native "+ Add" toggle.
       if (search?.isConnected && visible(search)) {
         try {
           addControl(current(original))?.click();
@@ -416,6 +464,12 @@
       font: 600 11px/1.2 sans-serif;
       white-space: nowrap;
       cursor: pointer;
+    }
+
+    /* In the Comments header: push to the right, sit before Show activity */
+    #${ID}.nqt-in-comments {
+      margin-left: auto;
+      margin-right: 8px;
     }
 
     #${ID}[data-active="true"] {
