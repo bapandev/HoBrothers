@@ -1,5 +1,5 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "scripts": [
     {
       "name": "iJewel Drive - Public Share Toggle",
@@ -42,6 +42,12 @@
       "enabled": true,
       "matches": ["https://hbusa.nifty.pm/*"],
       "file": "scripts/NiftyOpenHelpScout.js"
+    },
+    {
+      "name": "iJewel - Top Bar Tools (Show/Hide, Quick Tools, Box Select)",
+      "enabled": true,
+      "matches": ["https://ijewel3d.com/*", "https://*.ijewel3d.com/*"],
+      "file": "scripts/iJewelTopBarTools.js"
     }
   ]
 }
