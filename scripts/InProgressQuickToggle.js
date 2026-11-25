@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Nifty – In Progress Quick Toggle
 // @namespace    https://hbusa.nifty.pm/
-// @version      1.4.1
+// @version      1.4.2
 // @description  One-click In Progress tag toggle in the Comments header (beside Show activity). No pop-up alerts.
 // @match        https://hbusa.nifty.pm/*
 // @run-at       document-idle
@@ -30,26 +30,16 @@
   const exact = (el, text) => norm(el?.textContent) === text;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  // Find the ONE labels list that belongs to the "Tags" field.
-  // Walk up from the "Tags" label to the nearest box that holds a labels list.
-  // If that box holds more than one list (e.g. Tags + Exclusive Style), give up
-  // instead of guessing — so other fields can never be read as tags.
-  function tagsList(panel) {
-    const labels = all(panel, '.task-panel-fact-text, .control-text')
-      .filter(el => exact(el, 'Tags'));
-    const found = new Set();
-    for (const label of labels) {
-      let node = label.parentElement;
-      while (node && node !== panel) {
-        const lists = all(node, '.labels-list');
-        if (lists.length) {
-          if (lists.length === 1) found.add(lists[0]);
-          break;
-        }
-        node = node.parentElement;
-      }
-    }
-    return found.size === 1 ? [...found][0] : null;
+  // The "Tags" field box. It exists even when the task has NO tags
+  // (then Nifty shows "Add tags" and there is no .labels-list inside).
+  function tagsFact(panel) {
+    const facts = new Set(
+      all(panel, '.task-panel-fact-text, .control-text')
+        .filter(el => exact(el, 'Tags'))
+        .map(el => el.closest('.task-panel-fact, .control'))
+        .filter(Boolean)
+    );
+    return facts.size === 1 ? [...facts][0] : null;
   }
 
   function context() {
@@ -59,12 +49,12 @@
     if (panels.length !== 1) return null;
 
     const panel = panels[0];
-    const list = tagsList(panel);
-    if (!list) return null;
-    const control = list.closest('.task-panel-fact, .control') || list.parentElement;
+    const control = tagsFact(panel);
+    if (!control) return null;
+    const list = control.querySelector('.labels-list');   // null when no tags yet
 
     const key = norm(panel.querySelector('.content-panel-head .nice-id')?.textContent);
-    if (!list || !/^[A-Z][A-Z0-9]*-\d+$/i.test(key)) return null;
+    if (!/^[A-Z][A-Z0-9]*-\d+$/i.test(key)) return null;
 
     return { panel, control, list, key, url: location.href };
   }
@@ -79,6 +69,7 @@
 
   // The element in the task's Tags list that shows "In Progress"
   function tagChip(c) {
+    if (!c.list) return null;   // task has no tags at all
     const hits = all(c.list, '.status-chip, .labels-list-item-text, .labels-list-item')
       .filter(el => exact(el, TAG) &&
         el.closest('.labels-list') === c.list);   // only real Tags chips
@@ -89,9 +80,11 @@
   const hasTag = c => !!tagChip(c);
 
   const isAddText = el => /^\+?\s*Add$/i.test(norm(el?.textContent));
+  // "+ Add" inside the tag list, or "Add tags" when the task has no tags.
   const addControl = c =>
-    all(c.list, '.action-text, button, [role="button"]')
-      .find(el => el.id !== ID && isAddText(el));
+    (c.list && all(c.list, '.action-text, button, [role="button"]')
+      .find(el => el.id !== ID && isAddText(el))) ||
+    c.control.querySelector('.task-panel-fact-trigger, .task-panel-fact-empty');
 
   const searches = () =>
     all(document, 'input').filter(el =>
