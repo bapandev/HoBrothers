@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Nifty – In Progress Quick Toggle
 // @namespace    https://hbusa.nifty.pm/
-// @version      1.4.0
+// @version      1.4.1
 // @description  One-click In Progress tag toggle in the Comments header (beside Show activity). No pop-up alerts.
 // @match        https://hbusa.nifty.pm/*
 // @run-at       document-idle
@@ -30,14 +30,26 @@
   const exact = (el, text) => norm(el?.textContent) === text;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  function tagsBlock(panel) {
-    const blocks = all(panel, '.task-panel-fact, .control').filter(block =>
-      all(block, ':scope > * .task-panel-fact-text, .control-text')
-        .some(el => exact(el, 'Tags')) &&
-      block.querySelector('.labels-list')
-    );
-    const inner = blocks.filter(b => !blocks.some(o => o !== b && b.contains(o)));
-    return inner.length === 1 ? inner[0] : null;
+  // Find the ONE labels list that belongs to the "Tags" field.
+  // Walk up from the "Tags" label to the nearest box that holds a labels list.
+  // If that box holds more than one list (e.g. Tags + Exclusive Style), give up
+  // instead of guessing — so other fields can never be read as tags.
+  function tagsList(panel) {
+    const labels = all(panel, '.task-panel-fact-text, .control-text')
+      .filter(el => exact(el, 'Tags'));
+    const found = new Set();
+    for (const label of labels) {
+      let node = label.parentElement;
+      while (node && node !== panel) {
+        const lists = all(node, '.labels-list');
+        if (lists.length) {
+          if (lists.length === 1) found.add(lists[0]);
+          break;
+        }
+        node = node.parentElement;
+      }
+    }
+    return found.size === 1 ? [...found][0] : null;
   }
 
   function context() {
@@ -47,10 +59,10 @@
     if (panels.length !== 1) return null;
 
     const panel = panels[0];
-    const control = tagsBlock(panel);
-    if (!control) return null;
+    const list = tagsList(panel);
+    if (!list) return null;
+    const control = list.closest('.task-panel-fact, .control') || list.parentElement;
 
-    const list = control.querySelector('.labels-list');
     const key = norm(panel.querySelector('.content-panel-head .nice-id')?.textContent);
     if (!list || !/^[A-Z][A-Z0-9]*-\d+$/i.test(key)) return null;
 
@@ -68,7 +80,8 @@
   // The element in the task's Tags list that shows "In Progress"
   function tagChip(c) {
     const hits = all(c.list, '.status-chip, .labels-list-item-text, .labels-list-item')
-      .filter(el => exact(el, TAG));
+      .filter(el => exact(el, TAG) &&
+        el.closest('.labels-list') === c.list);   // only real Tags chips
     // outermost chip (so we can find its remove "x" inside)
     return hits.find(el => !hits.some(o => o !== el && o.contains(el))) || null;
   }
